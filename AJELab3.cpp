@@ -10,6 +10,7 @@
 using namespace std;
 
 void fileError(const string &errormsg, ifstream &file);
+int intLog2(int value);
 
 int main(int argc, char *argv[])
 {
@@ -156,6 +157,8 @@ int main(int argc, char *argv[])
 	for (unsigned i = 0; i < input.size(); ++i)
 		cout << input[i] << endl;
 
+
+
 	return 0;
 }
 
@@ -166,3 +169,12 @@ void fileError(const string &errormsg, ifstream &file)
 	exit(-1);
 }
 
+int intLog2(int value)
+{
+	int msb = -1;
+
+	while (value)
+		value = value >> 1, ++msb;
+
+	return msb;
+}
