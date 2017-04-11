@@ -11,6 +11,7 @@ using namespace std;
 
 void fileError(const string &errormsg, ifstream &file);
 int intLog2(int value);
+int bitsInbase2(int value);
 
 int main(int argc, char *argv[])
 {
@@ -156,8 +157,8 @@ int main(int argc, char *argv[])
 	cout << "Total memory " << totalMemory << endl << endl;
 	for (unsigned i = 0; i < input.size(); ++i)
 		cout << input[i] << endl;
-
-
+	for(int i=0; i < 17; ++i)
+		cout << "it takes " << bitsInbase2(i) << " bits to represent " << i <<".\n";
 
 	return 0;
 }
@@ -177,4 +178,14 @@ int intLog2(int value)
 		value = value >> 1, ++msb;
 
 	return msb;
+}
+
+int bitsInbase2(int value)
+{
+	int bits = 1;
+
+	for (; (value >= (1 << bits)); ++bits)
+		cout << (1 << bits) << " " << bits << "\n" ;
+
+	return (bits);
 }
