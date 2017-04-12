@@ -10,8 +10,7 @@
 using namespace std;
 
 void fileError(const string &errormsg, ifstream &file);
-int intLog2(int value);
-int bitsInbase2(int value);
+int bits2address(int value);
 
 int main(int argc, char *argv[])
 {
@@ -151,15 +150,28 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	/*
 	cout << "Line size " << lineSize << endl;
 	cout << "Cache size " << cacheSize << endl;
 	cout << "Cache assoc. " << assocCache << endl;
 	cout << "Total memory " << totalMemory << endl << endl;
 	for (unsigned i = 0; i < input.size(); ++i)
 		cout << input[i] << endl;
-	for(int i=0; i < 17; ++i)
-		cout << "it takes " << bitsInbase2(i) << " bits to represent " << i <<".\n";
+	*/
 
+	int cacheByteOffset = bits2address(lineSize);
+
+	char *memory = new char[totalMemory];
+	for (int i = 0; i < totalMemory; ++i)
+		memory[i] = 0;
+
+	char *cache = new char[cacheSize];
+	for (int i = 0; i < cacheSize; ++cacheSize)
+		cache[i] = 0;
+
+	
+	delete memory;
+	delete cache;
 	return 0;
 }
 
@@ -170,22 +182,12 @@ void fileError(const string &errormsg, ifstream &file)
 	exit(-1);
 }
 
-int intLog2(int value)
-{
-	int msb = -1;
 
-	while (value)
-		value = value >> 1, ++msb;
-
-	return msb;
-}
-
-int bitsInbase2(int value)
+int bits2address(int value)
 {
 	int bits = 1;
 
-	for (; (value >= (1 << bits)); ++bits)
-		cout << (1 << bits) << " " << bits << "\n" ;
+	for (;((1 << bits) < value); ++bits);
 
-	return (bits);
+	return bits;
 }
