@@ -18,7 +18,7 @@ struct tag
 	bool dirty;
 };
 
-struct tagLine
+struct tagSet
 {
 	tag tag1;
 	tag tag2;
@@ -29,6 +29,7 @@ struct computer
 {
 	char *memory;
 	char *cache;
+	tagSet *tagArray;
 	int lineSize;
 	int cacheSize;
 	int assocCache;
@@ -44,6 +45,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	computer vm;
 	int lineSize;
 	int cacheSize;
 	int assocCache;
@@ -184,17 +186,30 @@ int main(int argc, char *argv[])
 
 	int cacheByteOffset = bits2address(lineSize);
 
-	char *memory = new char[totalMemory];
+	vm.memory = new char[totalMemory];
 	for (int i = 0; i < totalMemory; ++i)
-		memory[i] = 0;
+		vm.memory[i] = 0;
 
-	char *cache = new char[cacheSize];
+	vm.cache = new char[cacheSize];
 	for (int i = 0; i < cacheSize; ++cacheSize)
-		cache[i] = 0;
+		vm.cache[i] = 0;
+
+	vm.tagArray = new tagSet[assocCache];
+	for (int i = 0; i < assocCache; ++i)
+	{
+		vm.tagArray[i].tag1.address = 0;
+		vm.tagArray[i].tag1.dirty = false;
+		vm.tagArray[i].tag2.address = 0;
+		vm.tagArray[i].tag2.dirty = false;
+		vm.tagArray[i].newest = 0;
+	}
+		
+
 
 	
-	delete memory;
-	delete cache;
+	delete vm.memory;
+	delete vm.cache;
+	delete vm.tagArray;
 	return 0;
 }
 
