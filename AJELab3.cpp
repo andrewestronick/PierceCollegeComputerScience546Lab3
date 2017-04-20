@@ -12,6 +12,29 @@ using namespace std;
 void fileError(const string &errormsg, ifstream &file);
 int bits2address(int value);
 
+struct tag
+{
+	int address;
+	bool dirty;
+};
+
+struct tagLine
+{
+	tag tag1;
+	tag tag2;
+	int newest;
+};
+
+struct computer
+{
+	char *memory;
+	char *cache;
+	int lineSize;
+	int cacheSize;
+	int assocCache;
+	int totalMemory;
+};
+
 int main(int argc, char *argv[])
 {
 	// Check for correct command line usage
