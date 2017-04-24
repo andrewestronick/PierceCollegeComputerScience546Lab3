@@ -4,37 +4,93 @@
 #include<iostream>
 #include<string>
 #include<vector>
+#include<map>
 #include<fstream>
 #include<sstream>
 
 using namespace std;
 
+#define addressLenght 32
+typedef unsigned __int32 address;
+typedef unsigned char byte;
+
+class config
+{
+public:
+
+	config::config(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity, address totalMemory);
+	string status();
+	unsigned getTag(address addr);
+
+private:
+
+	unsigned cacheLineSize;				// Width of cache
+	unsigned cacheLineOffsetBits;		// Number of bits needed to represent the cache line offset
+	unsigned setsOfCacheLines;			// Number of sets of cache lines (groups) in cache
+	unsigned lineSizeBits;				// Number of bits needed to represent the line size or tag
+	address cacheSize;					// Total size of cache in bytes
+	unsigned cacheAssociativity;		// Number of parallel cache lines
+	unsigned asssociativityBits;		// Bits of main memory block that maps to a tag (left most bits)
+	address totalMemory;				// Total main memory in bytes
+	address cacheLineOffsetMask;		// Mask used to find cache line offset (right most bits)
+	address cacheLineMask;				// Mask used to find cache line (middle bits)
+	address asssociativityMask;			// Mask used to find asssociativity bits (left most bits)
+
+
+	unsigned bitsForCacheLineOffset();	// Number of bits needed for the cache line offset
+	unsigned groupsOfCacheLine();		// Return number of groups of cache lines
+	unsigned bitsForCacheLine();		// Number of buts needed to represent the cache line
+	unsigned bitsForAssociativity();	// Return bits for block of main memory that maps to a tag (left most bits)
+	address getCacheLineOffsetMask();	// Get mask used to find cache line offset (right most bits)
+	address getCacheLineMask();			// Get mask used to find cache line (middle bits)
+	address getAsssociativityMask();	// Get mask used to find asssociativity bits (left most bits)
+
+};
+
+
+class ram
+{
+public:
+
+	ram(address size, unsigned cacheAssociativity);
+	~ram();
+	vector<byte> getCacheLine(address addr);
+	void putCachline(address addr, vector<byte> cacheLine);
+
+
+private:
+
+	address size;
+	unsigned cacheAssociativity;
+	byte *memory;
+
+};
+
+
+class cache
+{
+public:
+
+	cache(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity);
+	~cache();
+	vector<byte> getCacheLine(address tag);
+	void putCacheLine(address tag, vector<byte>);
+
+private:
+
+	unsigned cacheLineSize;
+	address cacheSize;
+	unsigned cacheAssociativity;
+	map<string, byte> cacheMemory;
+	map<string, address> tagArray;
+	address cacheGroupSize;
+	unsigned cacheLines;
+	stringstream key;
+};
+
+
 void fileError(const string &errormsg, ifstream &file);
-int bits2address(int value);
 
-struct tag
-{
-	int address;
-	bool dirty;
-};
-
-struct tagSet
-{
-	tag tag1;
-	tag tag2;
-	int newest;
-};
-
-struct computer
-{
-	char *memory;
-	char *cache;
-	tagSet *tagArray;
-	int lineSize;
-	int cacheSize;
-	int assocCache;
-	int totalMemory;
-};
 
 int main(int argc, char *argv[])
 {
@@ -45,11 +101,10 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	computer vm;
-	int lineSize;
-	int cacheSize;
-	int assocCache;
-	int totalMemory;
+	unsigned lineSize;
+	address cacheSize;
+	unsigned assocCache;
+	address totalMemory;
 	vector<string> input;
 	char flag = 0;
 
@@ -175,43 +230,64 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+
+	config vm(lineSize, cacheSize, assocCache, totalMemory);
+
+	ram memory(totalMemory, assocCache);
+	cache systemCache(lineSize, cacheSize, assocCache);
+
 	/*
-	cout << "Line size " << lineSize << endl;
-	cout << "Cache size " << cacheSize << endl;
-	cout << "Cache assoc. " << assocCache << endl;
-	cout << "Total memory " << totalMemory << endl << endl;
-	for (unsigned i = 0; i < input.size(); ++i)
-		cout << input[i] << endl;
-	*/
+	int cacheByteOffset = valueToPowerOf2Bits(lineSize);
+	int cacheBlocks = cacheSize / lineSize;
+	int blocks = cacheBlocks / assocCache;
 
-	int cacheByteOffset = bits2address(lineSize);
-
-	vm.memory = new char[totalMemory];
+	char *memory = new char[totalMemory];
 	for (int i = 0; i < totalMemory; ++i)
-		vm.memory[i] = 0;
+		memory[i] = 0;
 
-	vm.cache = new char[cacheSize];
+	char *cache = new char[cacheSize];
 	for (int i = 0; i < cacheSize; ++cacheSize)
-		vm.cache[i] = 0;
+		cache[i] = 0;
 
-	vm.tagArray = new tagSet[assocCache];
-	for (int i = 0; i < assocCache; ++i)
+	tag *tagArray = new tag[cacheBlocks];
+	for (int i = 0; i < cacheBlocks; ++i)
 	{
-		vm.tagArray[i].tag1.address = 0;
-		vm.tagArray[i].tag1.dirty = false;
-		vm.tagArray[i].tag2.address = 0;
-		vm.tagArray[i].tag2.dirty = false;
-		vm.tagArray[i].newest = 0;
+		tagArray[i].cacheLine = 0;
+		tagArray[i].dirty = false;
 	}
+
+	int *ageQueue = new int[cacheBlocks];
+	for (int i = 0; i < blocks; ++i)
+		for (int j = 0; j < assocCache; ++j)
+			ageQueue[(cacheBlocks * assocCache) + j] = j;
 		
+	for (int i = 0; i < input.size(); ++i)
+	{
+		stringstream line(input[i]);
+		char command;
 
+		line >> command;
 
+		if ('E' == command)
+		{
+
+		}
+		else
+		{
+			int address;
+			line >> address;
+			printf("Address: %i\tmemory: %i\tcache: %i\t\n",address, memory[address], cache[address]);
+		}
+	}
 	
-	delete vm.memory;
-	delete vm.cache;
-	delete vm.tagArray;
+	delete memory;
+	delete cache;
+	delete tagArray;
+	delete ageQueue;
+	*/
 	return 0;
 }
+
 
 void fileError(const string &errormsg, ifstream &file)
 {
@@ -221,11 +297,204 @@ void fileError(const string &errormsg, ifstream &file)
 }
 
 
-int bits2address(int value)
+config::config(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity, address totalMemory)
 {
-	int bits = 1;
+	this->cacheLineSize = cacheLineSize;
+	this->cacheSize = cacheSize;
+	this->cacheAssociativity = cacheAssociativity;
+	this->totalMemory = totalMemory;
 
-	for (;((1 << bits) < value); ++bits);
+	cacheLineOffsetBits = bitsForCacheLineOffset();
+	setsOfCacheLines = groupsOfCacheLine();
+	lineSizeBits = bitsForCacheLine();
+	asssociativityBits = bitsForAssociativity();
+	cacheLineOffsetMask = getCacheLineOffsetMask();
+	cacheLineMask =  getCacheLineMask();
+	asssociativityMask = getAsssociativityMask();
+}
+
+
+string config::status()
+{
+	stringstream status;
+
+	status << "Cache line size = " << cacheLineSize << endl;
+	status << "Number of bits needed to represent cache line offset = " << cacheLineOffsetBits << endl;
+	status << "Size of cache = " << cacheSize << endl;
+	status << "Associativity of cache (number of banks) = " << cacheAssociativity << endl;
+	status << "Set or groups of cache lines = " << setsOfCacheLines << endl;
+	status << "Number of bits needed to represent groups of cache lines = " << lineSizeBits << endl;
+	status << "Size of total main memory = " << totalMemory << endl;
+	status << "Number of bits needed to represent main memory block to tag mapping = " << asssociativityBits << endl;
+
+	status << "\nBit pattern for address (A = Main memory block asssociativity, C = Cache line, O = Cache line offset).\n\n";
+	for (int i = (addressLenght - 1); i >= 0; --i)
+		status << ((i / 10) ? to_string(i / 10) : " ");
+	status << endl;
+	for (int i = (addressLenght - 1); i >= 0; --i)
+		status << (i % 10);
+	status << endl;
+	for (unsigned i = 0; i < asssociativityBits; ++i)
+		status << "A";
+	for (unsigned i = 0; i < lineSizeBits; ++i)
+		status << "C";
+	for (unsigned i = 0; i < cacheLineOffsetBits; ++i)
+		status << "O";
+	status << endl;
+
+	status << "Cache line offset mask = " << cacheLineOffsetMask << ".\n";
+	status << "Cache line mask = " << cacheLineMask << ".\n";
+	status << "Asssociativity mask = " << asssociativityMask << ".\n";
+
+	return status.str();
+}
+
+unsigned config::getTag(address addr)
+{
+	return (addr & cacheLineMask);
+}
+
+
+unsigned config::bitsForCacheLineOffset()
+{
+	unsigned bits = 1;
+
+	for (; ((1u << bits) < cacheLineSize); ++bits);
 
 	return bits;
+}
+
+
+unsigned config::groupsOfCacheLine()
+{
+	return cacheSize / cacheLineSize / cacheAssociativity;
+}
+
+
+unsigned config::bitsForCacheLine()
+{
+	unsigned bits = 1;
+
+	for (; ((1u << bits) < setsOfCacheLines); ++bits);
+
+	return bits;
+}
+
+unsigned config::bitsForAssociativity()
+{
+	unsigned totalBits = addressLenght;
+	return (totalBits - lineSizeBits - cacheLineOffsetBits);
+}
+
+address config::getCacheLineOffsetMask()
+{
+	address mask = 0;
+
+	for(unsigned i = 0; i < cacheLineOffsetBits; ++i)
+	{
+		mask <<= 1;
+		mask |= 1;
+
+	}
+	
+	return mask;
+}
+
+address config::getCacheLineMask()
+{
+	address mask = 0;
+
+	for (unsigned i = 0; i < lineSizeBits; ++i)
+	{
+		mask <<= 1;
+		mask |= 1;
+	}
+
+	mask <<= cacheLineOffsetBits;
+
+	return mask;
+}
+
+address config::getAsssociativityMask()
+{
+	address mask = 0;
+
+	for (unsigned i = 0; i < asssociativityBits; ++i)
+	{
+		mask <<= 1;
+		mask |= 1;
+	}
+
+	mask <<= (cacheLineOffsetBits + lineSizeBits);
+
+	return mask;
+}
+
+ram::ram(address size, unsigned cacheAssociativity)
+{
+	this->size = size;
+	this->cacheAssociativity = cacheAssociativity;
+
+	memory = new byte[size];
+	for (unsigned i = 0; i < size; ++i)
+		memory[i] = 0x00;
+}
+
+ram::~ram()
+{
+	delete memory;
+}
+
+vector<byte> ram::getCacheLine(address addr)
+{
+	vector<byte> cacheLine;
+
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+		cacheLine.push_back(memory[(addr + i)]);
+
+	return cacheLine;
+}
+
+void ram::putCachline(address addr, vector<byte> cacheLine)
+{
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+		memory[(addr + i)] = cacheLine[i];
+}
+
+cache::cache(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity)
+{
+	this->cacheLineSize = cacheLineSize;
+	this->cacheSize = cacheSize;
+	this->cacheAssociativity = cacheAssociativity;
+
+	cacheGroupSize = cacheSize / cacheAssociativity;
+
+	for(unsigned i = 0; i < cacheGroupSize; i+=cacheLineSize)
+		for (unsigned j = 0; j < cacheAssociativity; ++j)
+		{
+			key.str("");
+			key << i << " " << j;
+			tagArray[key.str() + "used"] = 0x0;
+			tagArray[key.str() + "dirty"] = 0x0;
+			tagArray[key.str() + "age"] = (cacheAssociativity - j);
+		}
+}
+
+cache::~cache()
+{
+
+}
+
+vector<byte> cache::getCacheLine(address tag)
+{
+	vector<byte> cacheLine;
+
+
+
+	return cacheLine;
+}
+
+void cache::putCacheLine(address tag, vector<byte>)
+{
+
 }
