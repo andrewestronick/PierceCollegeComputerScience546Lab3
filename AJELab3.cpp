@@ -474,6 +474,7 @@ cache::cache(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativ
 		{
 			key.str("");
 			key << i << " " << j;
+			tagArray[key.str() + "value"] = 0x0;
 			tagArray[key.str() + "used"] = 0x0;
 			tagArray[key.str() + "dirty"] = 0x0;
 			tagArray[key.str() + "age"] = (cacheAssociativity - j);
