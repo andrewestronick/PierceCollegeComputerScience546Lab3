@@ -21,6 +21,11 @@ public:
 	config::config(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity, address totalMemory);
 	string status();
 	unsigned getTag(address addr);
+	address getAssociativityAddress(address addr);
+	unsigned getCacheLineSize();
+	address getCacheSize();
+	unsigned getCacheAssociativity();
+	address getTotalMemory();
 
 private:
 
@@ -52,7 +57,7 @@ class ram
 {
 public:
 
-	ram(address size, unsigned cacheAssociativity);
+	ram(config *configPtr);
 	~ram();
 	vector<byte> getCacheLine(address addr);
 	void putCachline(address addr, vector<byte> cacheLine);
@@ -71,10 +76,13 @@ class cache
 {
 public:
 
-	cache(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity);
+	cache(config *configPtr);
 	~cache();
-	vector<byte> getCacheLine(address tag);
+	vector<byte> getCacheLine(address addr);
 	void putCacheLine(address tag, vector<byte>);
+	void dumpMap();
+	int checkCache(address addr);
+	void promotoTagAge(unsigned tag);
 
 private:
 
@@ -86,6 +94,9 @@ private:
 	address cacheGroupSize;
 	unsigned cacheLines;
 	stringstream key;
+	config *configPtr;
+	byte **cacheBank;
+
 };
 
 
@@ -233,8 +244,13 @@ int main(int argc, char *argv[])
 
 	config vm(lineSize, cacheSize, assocCache, totalMemory);
 
-	ram memory(totalMemory, assocCache);
-	cache systemCache(lineSize, cacheSize, assocCache);
+	ram memory(&vm);
+
+	cache systemCache(&vm);
+
+	systemCache.getCacheLine(0);
+
+
 
 	/*
 	int cacheByteOffset = valueToPowerOf2Bits(lineSize);
@@ -349,9 +365,40 @@ string config::status()
 	return status.str();
 }
 
+
 unsigned config::getTag(address addr)
 {
-	return (addr & cacheLineMask);
+	return ((addr & cacheLineMask) >> cacheLineOffsetBits);
+}
+
+
+address config::getAssociativityAddress(address addr)
+{
+	return (addr & asssociativityMask);
+}
+
+
+unsigned config::getCacheLineSize()
+{
+	return cacheLineSize;
+}
+
+
+address config::getCacheSize()
+{
+	return cacheSize;
+}
+
+
+unsigned config::getCacheAssociativity()
+{
+	return cacheAssociativity;
+}
+
+
+address config::getTotalMemory()
+{
+	return totalMemory;
 }
 
 
@@ -380,11 +427,13 @@ unsigned config::bitsForCacheLine()
 	return bits;
 }
 
+
 unsigned config::bitsForAssociativity()
 {
 	unsigned totalBits = addressLenght;
 	return (totalBits - lineSizeBits - cacheLineOffsetBits);
 }
+
 
 address config::getCacheLineOffsetMask()
 {
@@ -399,6 +448,7 @@ address config::getCacheLineOffsetMask()
 	
 	return mask;
 }
+
 
 address config::getCacheLineMask()
 {
@@ -415,6 +465,7 @@ address config::getCacheLineMask()
 	return mask;
 }
 
+
 address config::getAsssociativityMask()
 {
 	address mask = 0;
@@ -430,20 +481,23 @@ address config::getAsssociativityMask()
 	return mask;
 }
 
-ram::ram(address size, unsigned cacheAssociativity)
+
+ram::ram(config *configPtr)
 {
-	this->size = size;
-	this->cacheAssociativity = cacheAssociativity;
+	this->size = configPtr->getTotalMemory();
+	this->cacheAssociativity = configPtr->getCacheAssociativity();
 
 	memory = new byte[size];
 	for (unsigned i = 0; i < size; ++i)
 		memory[i] = 0x00;
 }
 
+
 ram::~ram()
 {
 	delete memory;
 }
+
 
 vector<byte> ram::getCacheLine(address addr)
 {
@@ -455,17 +509,20 @@ vector<byte> ram::getCacheLine(address addr)
 	return cacheLine;
 }
 
+
 void ram::putCachline(address addr, vector<byte> cacheLine)
 {
 	for (unsigned i = 0; i < cacheAssociativity; ++i)
 		memory[(addr + i)] = cacheLine[i];
 }
 
-cache::cache(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity)
+
+cache::cache(config *configPtr)
 {
-	this->cacheLineSize = cacheLineSize;
-	this->cacheSize = cacheSize;
-	this->cacheAssociativity = cacheAssociativity;
+	this->cacheLineSize = configPtr->getCacheLineSize();
+	this->cacheSize = configPtr->getCacheSize();
+	this->cacheAssociativity = configPtr->getCacheAssociativity();
+	this->configPtr = configPtr;
 
 	cacheGroupSize = cacheSize / cacheAssociativity;
 
@@ -473,24 +530,37 @@ cache::cache(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativ
 		for (unsigned j = 0; j < cacheAssociativity; ++j)
 		{
 			key.str("");
-			key << i << " " << j;
+			key << i << "-" << j << "-";
 			tagArray[key.str() + "value"] = 0x0;
 			tagArray[key.str() + "used"] = 0x0;
 			tagArray[key.str() + "dirty"] = 0x0;
-			tagArray[key.str() + "age"] = (cacheAssociativity - j);
+			tagArray[key.str() + "age"] = j; // smaller is older
 		}
+
+	cacheBank = new byte*[cacheAssociativity];
+
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+	{
+		cacheBank[i] = new byte[cacheGroupSize];
+	}
+
 }
+
 
 cache::~cache()
 {
 
 }
 
-vector<byte> cache::getCacheLine(address tag)
+vector<byte> cache::getCacheLine(address addr)
 {
 	vector<byte> cacheLine;
+	address tag = configPtr->getTag(addr);
+	int group = checkCache(addr);
 
-
+	if (-1 != group)
+		for (unsigned i = 0; i < cacheLineSize; ++i)
+			cacheLine.push_back(cacheBank[group][tag + i]);
 
 	return cacheLine;
 }
@@ -498,4 +568,33 @@ vector<byte> cache::getCacheLine(address tag)
 void cache::putCacheLine(address tag, vector<byte>)
 {
 
+}
+
+void cache::dumpMap()
+{
+	for (const auto &p : tagArray)
+	{
+		std::cout << "tagArray[" << p.first << "] = " << p.second << '\n';
+	}
+}
+
+int cache::checkCache(address addr)
+{
+	unsigned tagIndex = configPtr->getTag(addr);
+	address tagValue = configPtr->getAssociativityAddress(addr);
+
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+	{
+		key.str("");
+		key << tagIndex << "-" << i << "-value";
+		if (tagValue == tagArray[key.str() + "-value"] && 1 == tagArray[key.str() + "-used"])
+			return i;
+	}
+
+	return -1; // We did not find cache line
+}
+
+void cache::promotoTagAge(unsigned tag)
+{
+	unsigned current;
 }
