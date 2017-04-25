@@ -78,11 +78,16 @@ public:
 
 	cache(config *configPtr);
 	~cache();
-	vector<byte> getCacheLine(address addr);
-	void putCacheLine(address tag, vector<byte>);
+	vector<byte> getCacheLine(address addr, unsigned group);
+	void putCacheLine(address tag, unsigned group, vector<byte> cacheLine);
 	void dumpMap();
 	int checkCache(address addr);
-	void promotoTagAge(unsigned tag);
+	void promotoTagAge(unsigned tag, unsigned group);
+	address getTagArrayValue(unsigned tagIndex, unsigned tagGroup, string type);
+	void setTagArrayValue(unsigned tagIndex, unsigned tagGroup, string type, address addr);
+	int findFreeGroup(address addr);
+	void markGroupUsed(unsigned tagIndex, unsigned tagGroup);
+	unsigned findOldestGroup(address addr);
 
 private:
 
@@ -248,7 +253,7 @@ int main(int argc, char *argv[])
 
 	cache systemCache(&vm);
 
-	systemCache.getCacheLine(0);
+	// systemCache.getCacheLine(0);
 
 
 
@@ -549,26 +554,31 @@ cache::cache(config *configPtr)
 
 cache::~cache()
 {
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+		delete cacheBank[i];
 
+	delete cacheBank;
 }
 
-vector<byte> cache::getCacheLine(address addr)
+
+vector<byte> cache::getCacheLine(address addr, unsigned group)
 {
 	vector<byte> cacheLine;
 	address tag = configPtr->getTag(addr);
-	int group = checkCache(addr);
 
-	if (-1 != group)
-		for (unsigned i = 0; i < cacheLineSize; ++i)
-			cacheLine.push_back(cacheBank[group][tag + i]);
+	for (unsigned i = 0; i < cacheLineSize; ++i)
+		cacheLine.push_back(cacheBank[group][tag + i]);
 
 	return cacheLine;
 }
 
-void cache::putCacheLine(address tag, vector<byte>)
-{
 
+void cache::putCacheLine(address tag, unsigned group, vector<byte> cacheLine)
+{
+	for (unsigned i = 0; i < cacheLineSize; ++i)
+		cacheBank[group][tag + i] = cacheLine[i];
 }
+
 
 void cache::dumpMap()
 {
@@ -578,23 +588,79 @@ void cache::dumpMap()
 	}
 }
 
+
 int cache::checkCache(address addr)
 {
 	unsigned tagIndex = configPtr->getTag(addr);
 	address tagValue = configPtr->getAssociativityAddress(addr);
 
 	for (unsigned i = 0; i < cacheAssociativity; ++i)
-	{
-		key.str("");
-		key << tagIndex << "-" << i << "-value";
-		if (tagValue == tagArray[key.str() + "-value"] && 1 == tagArray[key.str() + "-used"])
+		if (tagValue == getTagArrayValue(tagIndex, i, "value") && 1 == getTagArrayValue(tagIndex, i, "used"))
 			return i;
-	}
 
 	return -1; // We did not find cache line
 }
 
-void cache::promotoTagAge(unsigned tag)
+
+void cache::promotoTagAge(unsigned tag, unsigned group)
 {
-	unsigned current;
+		unsigned currentAge = getTagArrayValue(tag, group, "age");
+
+		setTagArrayValue(tag, group, "age", 0);
+
+		for (unsigned i = 0; i < cacheAssociativity; ++i)
+		{
+			address age = getTagArrayValue(tag, group, "age");
+
+			if (i != group || age <= currentAge)
+				setTagArrayValue(tag, group, "age", ++age);
+		}
+
+}
+
+
+address cache::getTagArrayValue(unsigned tagIndex, unsigned tagGroup, string type)
+{
+	key.str("");
+	key << tagIndex << "-" << tagGroup << "-" << type;
+
+	return tagArray[key.str()];
+}
+
+
+void cache::setTagArrayValue(unsigned tagIndex, unsigned tagGroup, string type, address addr)
+{
+	key.str("");
+	key << tagIndex << "-" << tagGroup << "-" << type;
+
+	tagArray[key.str()] = addr;
+}
+
+
+int cache::findFreeGroup(address addr)
+{
+	unsigned tagIndex = configPtr->getTag(addr);
+
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+		if (getTagArrayValue(tagIndex, i, "used") == 0)
+			return i;
+
+	return -1;
+}
+
+void cache::markGroupUsed(unsigned tagIndex, unsigned tagGroup)
+{
+	setTagArrayValue(tagIndex, tagGroup, "used", 1);
+}
+
+unsigned cache::findOldestGroup(address addr)
+{
+	unsigned tagIndex = configPtr->getTag(addr);
+	unsigned oldest = 0;
+
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+		if (getTagArrayValue(tagIndex, i, "age") < oldest && getTagArrayValue(tagIndex, i, "age") == 1)
+			oldest = i;
+
+	return oldest;
 }
