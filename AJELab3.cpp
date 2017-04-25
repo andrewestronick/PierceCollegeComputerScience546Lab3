@@ -26,6 +26,7 @@ public:
 	address getCacheSize();
 	unsigned getCacheAssociativity();
 	address getTotalMemory();
+	unsigned getCacheLineOffsetForAddress(address addr);
 
 private:
 
@@ -61,6 +62,7 @@ public:
 	~ram();
 	vector<byte> getCacheLine(address addr);
 	void putCachline(address addr, vector<byte> cacheLine);
+	byte getAddress(address addr);
 
 
 private:
@@ -252,36 +254,7 @@ int main(int argc, char *argv[])
 	ram memory(&vm);
 
 	cache systemCache(&vm);
-
-	// systemCache.getCacheLine(0);
-
-
-
-	/*
-	int cacheByteOffset = valueToPowerOf2Bits(lineSize);
-	int cacheBlocks = cacheSize / lineSize;
-	int blocks = cacheBlocks / assocCache;
-
-	char *memory = new char[totalMemory];
-	for (int i = 0; i < totalMemory; ++i)
-		memory[i] = 0;
-
-	char *cache = new char[cacheSize];
-	for (int i = 0; i < cacheSize; ++cacheSize)
-		cache[i] = 0;
-
-	tag *tagArray = new tag[cacheBlocks];
-	for (int i = 0; i < cacheBlocks; ++i)
-	{
-		tagArray[i].cacheLine = 0;
-		tagArray[i].dirty = false;
-	}
-
-	int *ageQueue = new int[cacheBlocks];
-	for (int i = 0; i < blocks; ++i)
-		for (int j = 0; j < assocCache; ++j)
-			ageQueue[(cacheBlocks * assocCache) + j] = j;
-		
+	
 	for (int i = 0; i < input.size(); ++i)
 	{
 		stringstream line(input[i]);
@@ -291,21 +264,88 @@ int main(int argc, char *argv[])
 
 		if ('E' == command)
 		{
+			address addr;
+			line >> addr;
+			
+			char w;
+			line >> w;
 
+			unsigned value;
+			line >> value;
+
+			vector<byte> valueBytes;
+			if (value <= 0xFF)
+				valueBytes.push_back(value);
+			else if (value <= 0xFFFF)
+			{
+				valueBytes.push_back((value & 0xFF00) >> 8);
+				valueBytes.push_back(value & 0xFF);
+			}
+			else
+			{
+				valueBytes.push_back((value & 0xFF000000) >> 24);
+				valueBytes.push_back((value & 0xFF0000) >> 16);
+				valueBytes.push_back((value & 0xFF00) >> 8);
+				valueBytes.push_back(value & 0xFF);
+			}
+
+			int group = systemCache.checkCache(addr);
+
+			if (-1 == group) // Not in Cache
+			{
+				int targetGroup = systemCache.findFreeGroup(addr);
+				
+				if (-1 != targetGroup) // Cache has room
+				{
+					vector<byte> cacheLine = memory.getCacheLine(addr);
+					systemCache.putCacheLine(addr, targetGroup, cacheLine);
+					systemCache.setTagArrayValue(vm.getTag(addr), targetGroup, "value", vm.getAssociativityAddress(addr));
+					systemCache.promotoTagAge(vm.getTag(addr), targetGroup);
+					systemCache.markGroupUsed(vm.getTag(addr), targetGroup);
+				}
+				else // Flush oldest cache group and replace
+				{
+					unsigned oldestGroup = systemCache.findOldestGroup(addr);
+					vector<byte> cacheLine = systemCache.getCacheLine(addr, oldestGroup);
+					address oldAddress = systemCache.getTagArrayValue(vm.getTag(addr),oldestGroup,"value");
+					memory.putCachline(oldAddress, cacheLine);
+
+					cacheLine = memory.getCacheLine(addr);
+					systemCache.putCacheLine(addr, targetGroup, cacheLine);
+					systemCache.setTagArrayValue(vm.getTag(addr), targetGroup, "value", vm.getAssociativityAddress(addr));
+					systemCache.promotoTagAge(vm.getTag(addr), targetGroup);
+					systemCache.markGroupUsed(vm.getTag(addr), targetGroup);
+				}
+			}
+
+			vector<byte> cacheLine = systemCache.getCacheLine(addr, group);
+
+			for (unsigned i = 0; i < valueBytes.size(); ++i)
+				cacheLine[i + vm.getCacheLineOffsetForAddress(addr)] = valueBytes[i];
+
+			systemCache.putCacheLine(addr, group, cacheLine);
+
+			systemCache.setTagArrayValue(vm.getTag(addr), group, "value", vm.getAssociativityAddress(addr));
+			systemCache.promotoTagAge(vm.getTag(addr), group);
+			systemCache.markGroupUsed(vm.getTag(addr), group);
 		}
-		else
+		else // Command is F
 		{
-			int address;
-			line >> address;
-			printf("Address: %i\tmemory: %i\tcache: %i\t\n",address, memory[address], cache[address]);
+			address addr;
+			line >> addr;
+			int group = systemCache.checkCache(addr);
+			if (-1 == group)
+			{
+				printf("Address: %i\tmemory: %i\tcache: -1\n", addr, memory.getAddress(addr));
+			}
+			else
+			{
+				vector<byte> cacheLine = systemCache.getCacheLine(addr, group);
+				printf("Address: %i\tmemory: %i\tcache: %i\n", addr, memory.getAddress(addr), cacheLine[vm.getCacheLineOffsetForAddress(addr)]);
+			}
 		}
 	}
-	
-	delete memory;
-	delete cache;
-	delete tagArray;
-	delete ageQueue;
-	*/
+
 	return 0;
 }
 
@@ -404,6 +444,11 @@ unsigned config::getCacheAssociativity()
 address config::getTotalMemory()
 {
 	return totalMemory;
+}
+
+unsigned config::getCacheLineOffsetForAddress(address addr)
+{
+	return (addr & cacheLineOffsetMask);
 }
 
 
@@ -519,6 +564,11 @@ void ram::putCachline(address addr, vector<byte> cacheLine)
 {
 	for (unsigned i = 0; i < cacheAssociativity; ++i)
 		memory[(addr + i)] = cacheLine[i];
+}
+
+byte ram::getAddress(address addr)
+{
+	return memory[addr];
 }
 
 
