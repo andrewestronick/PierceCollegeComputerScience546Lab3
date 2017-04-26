@@ -14,6 +14,13 @@ using namespace std;
 typedef unsigned __int32 address;
 typedef unsigned char byte;
 
+struct instruction
+{
+	char rw;
+	address addr;
+	unsigned value;
+};
+
 class config
 {
 public:
@@ -69,6 +76,7 @@ private:
 
 	address size;
 	unsigned cacheAssociativity;
+	unsigned cacheLineSize;
 	byte *memory;
 
 };
@@ -123,7 +131,8 @@ int main(int argc, char *argv[])
 	address cacheSize;
 	unsigned assocCache;
 	address totalMemory;
-	vector<string> input;
+	vector<instruction> input;
+	instruction temp;
 	char flag = 0;
 
 	// Open file and read contents into vector of strings
@@ -210,8 +219,11 @@ int main(int argc, char *argv[])
 		{
 			if (arg1 < 0 || (arg1 % 2) != 0)
 				fileError("invalid value: " + line, inFile);
-
-			input.emplace_back(string(1, command) + " " + to_string(arg1));
+			
+			temp.rw = 'R';
+			temp.addr = arg1;
+			temp.value = 0;
+			input.emplace_back(temp);
 
 			continue;
 		}
@@ -225,7 +237,10 @@ int main(int argc, char *argv[])
 		if ((arg1 < 0 || (arg1 % 2) != 0) || arg3 < 0)
 			fileError("invalid value: " + line, inFile);
 		
-		input.emplace_back(string(1, command) + " " + to_string(arg1) + " W " + to_string(arg3));
+		temp.rw = 'W';
+		temp.addr = arg1;
+		temp.value = arg3;
+		input.emplace_back(temp);
 	}
 
 	inFile.close();
@@ -254,43 +269,21 @@ int main(int argc, char *argv[])
 	ram memory(&vm);
 
 	cache systemCache(&vm);
-	
+
 	for (unsigned k = 0; k < input.size(); ++k)
 	{
-		stringstream line(input[k]);
-		char c = 'Z';
-
-		cout << line.str() << endl;
-		cout << "c=" << c << endl;
-		line >> c;
-		cout << "c=" << c << endl;
-		//
-		if ('E' == c)
+		if ('W' == input[k].rw)
 		{
-			address addr;
-			line >> addr;
-			
-			char w;
-			line >> w;
+			address addr = input[k].addr;
 
-			unsigned value;
-			line >> value;
+			unsigned value = input[k].value;
 
 			vector<byte> valueBytes;
-			if (value <= 0xFF)
-				valueBytes.push_back(value);
-			else if (value <= 0xFFFF)
-			{
-				valueBytes.push_back((value & 0xFF00) >> 8);
-				valueBytes.push_back(value & 0xFF);
-			}
-			else
-			{
-				valueBytes.push_back((value & 0xFF000000) >> 24);
-				valueBytes.push_back((value & 0xFF0000) >> 16);
-				valueBytes.push_back((value & 0xFF00) >> 8);
-				valueBytes.push_back(value & 0xFF);
-			}
+
+			valueBytes.push_back((value & 0xFF000000) >> 24);
+			valueBytes.push_back((value & 0xFF0000) >> 16);
+			valueBytes.push_back((value & 0xFF00) >> 8);
+			valueBytes.push_back(value & 0xFF);
 
 			int group = systemCache.checkCache(addr);
 
@@ -305,6 +298,7 @@ int main(int argc, char *argv[])
 					systemCache.setTagArrayValue(vm.getTag(addr), targetGroup, "value", vm.getAssociativityAddress(addr));
 					systemCache.promotoTagAge(vm.getTag(addr), targetGroup);
 					systemCache.markGroupUsed(vm.getTag(addr), targetGroup);
+					group = targetGroup;
 				}
 				else // Flush oldest cache group and replace
 				{
@@ -314,10 +308,11 @@ int main(int argc, char *argv[])
 					memory.putCachline(oldAddress, cacheLine);
 
 					cacheLine = memory.getCacheLine(addr);
-					systemCache.putCacheLine(addr, targetGroup, cacheLine);
+					systemCache.putCacheLine(addr, oldestGroup, cacheLine);
 					systemCache.setTagArrayValue(vm.getTag(addr), targetGroup, "value", vm.getAssociativityAddress(addr));
 					systemCache.promotoTagAge(vm.getTag(addr), targetGroup);
 					systemCache.markGroupUsed(vm.getTag(addr), targetGroup);
+					group = oldestGroup;
 				}
 			}
 
@@ -334,8 +329,7 @@ int main(int argc, char *argv[])
 		}
 		else // Command is F
 		{
-			address addr;
-			line >> addr;
+			address addr = input[k].addr;
 			int group = systemCache.checkCache(addr);
 			if (-1 == group)
 			{
@@ -343,12 +337,21 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
+				unsigned value = 0;
+
 				vector<byte> cacheLine = systemCache.getCacheLine(addr, group);
-				printf("Address: %i\tmemory: %i\tcache: %i\n", addr, memory.getAddress(addr), cacheLine[vm.getCacheLineOffsetForAddress(addr)]);
+
+				for (unsigned i = 0; i < 4; ++i)
+				{
+					value |= cacheLine[vm.getCacheLineOffsetForAddress(addr) + i];
+					value <<= 8;
+				}
+
+				printf("Address: %i\tmemory: %i\tcache: %i\n", addr, memory.getAddress(addr), value);
 			}
 		}
 	}
-
+	
 	return 0;
 }
 
@@ -539,6 +542,7 @@ ram::ram(config *configPtr)
 {
 	this->size = configPtr->getTotalMemory();
 	this->cacheAssociativity = configPtr->getCacheAssociativity();
+	this->cacheLineSize = configPtr->getCacheLineSize();
 
 	memory = new byte[size];
 	for (unsigned i = 0; i < size; ++i)
@@ -556,7 +560,7 @@ vector<byte> ram::getCacheLine(address addr)
 {
 	vector<byte> cacheLine;
 
-	for (unsigned i = 0; i < cacheAssociativity; ++i)
+	for (unsigned i = 0; i < cacheLineSize; ++i)
 		cacheLine.push_back(memory[(addr + i)]);
 
 	return cacheLine;
@@ -597,7 +601,7 @@ cache::cache(config *configPtr)
 
 	cacheBank = new byte*[cacheAssociativity];
 
-	for (unsigned i = 0; i < cacheGroupSize; ++i)
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
 	{
 		cacheBank[i] = new byte[cacheGroupSize];
 	}
@@ -660,17 +664,17 @@ int cache::checkCache(address addr)
 
 void cache::promotoTagAge(unsigned tag, unsigned group)
 {
-		unsigned currentAge = getTagArrayValue(tag, group, "age");
+	unsigned currentAge = getTagArrayValue(tag, group, "age");
 
-		setTagArrayValue(tag, group, "age", 0);
+	setTagArrayValue(tag, group, "age", 0);
 
-		for (unsigned i = 0; i < cacheAssociativity; ++i)
-		{
-			address age = getTagArrayValue(tag, group, "age");
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+	{
+		address age = getTagArrayValue(tag, group, "age");
 
-			if (i != group || age <= currentAge)
+		if (i != group && age <= currentAge)
 				setTagArrayValue(tag, group, "age", ++age);
-		}
+	}
 
 }
 
