@@ -102,7 +102,7 @@ private:
 	unsigned cacheLines;
 	stringstream key;
 	config *configPtr;
-	byte **cacheBank;
+	byte** cacheBank;
 
 };
 
@@ -255,14 +255,17 @@ int main(int argc, char *argv[])
 
 	cache systemCache(&vm);
 	
-	for (int i = 0; i < input.size(); ++i)
+	for (unsigned k = 0; k < input.size(); ++k)
 	{
-		stringstream line(input[i]);
-		char command;
+		stringstream line(input[k]);
+		char c = 'Z';
 
-		line >> command;
-
-		if ('E' == command)
+		cout << line.str() << endl;
+		cout << "c=" << c << endl;
+		line >> c;
+		cout << "c=" << c << endl;
+		//
+		if ('E' == c)
 		{
 			address addr;
 			line >> addr;
@@ -594,11 +597,14 @@ cache::cache(config *configPtr)
 
 	cacheBank = new byte*[cacheAssociativity];
 
-	for (unsigned i = 0; i < cacheAssociativity; ++i)
+	for (unsigned i = 0; i < cacheGroupSize; ++i)
 	{
 		cacheBank[i] = new byte[cacheGroupSize];
 	}
 
+	for (unsigned i = 0; i < cacheAssociativity; ++i)
+		for (unsigned j = 0; j < cacheGroupSize; ++j)
+			cacheBank[i][j] = 0x0;
 }
 
 
