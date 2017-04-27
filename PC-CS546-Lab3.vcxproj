@@ -143,6 +143,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AJELab3.cpp" />
+    <ClCompile Include="cacheLine.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cacheLine.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
