@@ -24,9 +24,18 @@
     <ClCompile Include="cacheLine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="arch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacheLine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="global.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="arch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
