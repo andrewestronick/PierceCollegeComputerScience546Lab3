@@ -7,5 +7,11 @@
 
 int main(int argc, char *argv[])
 {
+	arch *config = new arch(16, 2048, 2, 32768);
+
+
+	
+
+	delete config;
 	return 0;
 }

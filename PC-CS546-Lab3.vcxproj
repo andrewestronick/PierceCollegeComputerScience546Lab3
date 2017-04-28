@@ -146,11 +146,13 @@
     <ClCompile Include="arch.cpp" />
     <ClCompile Include="cacheLine.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ram.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arch.h" />
     <ClInclude Include="cacheLine.h" />
     <ClInclude Include="global.h" />
+    <ClInclude Include="ram.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

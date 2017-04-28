@@ -27,6 +27,9 @@
     <ClCompile Include="arch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ram.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacheLine.h">
@@ -36,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="arch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ram.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
