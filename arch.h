@@ -12,6 +12,7 @@ public:
 	address getCacheSize();
 	unsigned getCacheAssociativity();
 	address getTotalMemory();
+	unsigned getGacheLineMask();
 
 private:
 
@@ -19,6 +20,7 @@ private:
 	address cacheSize;
 	unsigned cacheAssociativity;
 	address totalMemory;
+	unsigned cacheLineMask;
 };
 
 #endif

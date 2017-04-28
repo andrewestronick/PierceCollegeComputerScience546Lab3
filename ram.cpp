@@ -12,3 +12,10 @@ ram::~ram()
 {
 	delete data;
 }
+
+cacheLine* ram::get(address from)
+{
+	cacheLine *line = new cacheLine(from, cacheLineSize);
+	line->get(data);
+	return line;
+}

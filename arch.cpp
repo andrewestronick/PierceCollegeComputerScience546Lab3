@@ -32,3 +32,8 @@ address arch::getTotalMemory()
 {
 	return totalMemory;
 }
+
+unsigned arch::getGacheLineMask()
+{
+	return 0;
+}

@@ -1,16 +1,28 @@
 #include "cacheLine.h"
 
 
-cacheLine::cacheLine(arch *config, address baseAddress)
+cacheLine::cacheLine(address baseAddress, unsigned cacheLineSize)
 {
 	this->baseAddress = baseAddress;
-	this->cacheLineSize = config->getCacheLineSize();
+	this->cacheLineSize = cacheLineSize;
 	data = new byte[this->cacheLineSize];
 }
 
 cacheLine::~cacheLine()
 {
 	delete data;
+}
+
+void cacheLine::get(byte * from)
+{
+	for (unsigned i = 0; i < cacheLineSize; ++i)
+		data[i] = from[i];
+}
+
+void cacheLine::put(byte * to)
+{
+	for (unsigned i = 0; i < cacheLineSize; ++i)
+		to[i] = data[i];
 }
 
 byte cacheLine::getByte(unsigned index)
