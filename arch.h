@@ -3,6 +3,11 @@
 
 #include "global.h"
 
+// Types of masks
+#define OFFSET 1
+#define TAG 2
+#define MEMORY 4
+
 class arch
 {
 public:
@@ -13,20 +18,16 @@ public:
 	address getCacheSize();
 	unsigned getCacheAssociativity();
 	address getTotalMemory();
-	unsigned getBits(unsigned value);
-	unsigned getOffsetBits();
-	unsigned getTagBits();
-	address stripOffsetMask();
-	address tagMask();
-	address memoryMask();
-
+	unsigned getBits(unsigned type);
+	address getMask(unsigned type);
 
 private:
-
 	unsigned cacheLineSize;
 	address cacheSize;
 	unsigned cacheAssociativity;
 	address totalMemory;
+
+	unsigned convertToBits(unsigned value);
 };
 
 #endif

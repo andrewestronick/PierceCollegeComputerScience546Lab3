@@ -14,30 +14,22 @@ cacheLine::~cacheLine()
 	delete config;
 }
 
-void cacheLine::get(byte *from)
+void cacheLine::get(byte *from, bool tagRelative)
 {
+	address target = ((tagRelative) ? (start & config->getMask(TAG)) : (start));
+
 	for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
 		data[i] = from[start + i];
 }
 
-void cacheLine::put(byte *to, bool relative)
+void cacheLine::put(byte *to, bool tagRelative)
 {
-	address rstart = start & config->tagMask();
+	address target = ((tagRelative) ? (start & config->getMask(TAG)) : (start));
 
-	if (relative)
-		for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
-			to[rstart + i] = data[i];
-	else
-		for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
-			to[start + i] = data[i];
+	for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
+			to[target + i] = data[i];
 }
 
-address cacheLine::getAddress()
-{
-	return start;
-}
+address cacheLine::getAddress() { return start; }
 
-void cacheLine::setAddress(address start)
-{
-	this->start = start;
-}
+void cacheLine::setAddress(address start) { this->start = start; }

@@ -15,13 +15,10 @@ ram::~ram()
 
 cacheLine* ram::get(address from)
 {
-	from &= config->stripOffsetMask();
+	from &= ~config->getMask(OFFSET);
 	cacheLine *line = new cacheLine(config, from);
-	line->get(data);
+	line->get(data, false);
 	return line;
 }
 
-void ram::put(cacheLine *line)
-{
-	line->put(data, false);
-}
+void ram::put(cacheLine *line) { line->put(data, false); }

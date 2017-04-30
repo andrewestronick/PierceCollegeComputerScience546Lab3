@@ -9,8 +9,8 @@ class cacheLine
 public:
 	cacheLine(arch *config, address baseAddress);
 	~cacheLine();
-	void get(byte *from);
-	void put(byte *to, bool relative);
+	void get(byte *from, bool tagRelative);
+	void put(byte *to, bool tagRelative);
 	address getAddress();
 	void setAddress(address start);
 

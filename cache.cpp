@@ -60,13 +60,16 @@ void cache::push(cacheLine *line)
 
 	line->put(cacheMemory[bank], true);
 	tagArray[bank][tag].dirty = true;
+	tagArray[bank][tag].memoryAddress = line->getAddress();
+	makeYoungest(tag, bank);
 
+	delete line;
 }
 
 bool cache::checkCache(address from)
 {
 	unsigned tag = getTag(from);
-	address memoryAddress = from & config->memoryMask();
+	address memoryAddress = from & config->getMask(MEMORY);
 	
 	for (unsigned i = 0; i < config->getCacheAssociativity(); ++i)
 		if (tagArray[i][tag].memoryAddress == memoryAddress)
@@ -77,17 +80,70 @@ bool cache::checkCache(address from)
 
 cacheLine *cache::pull(address from)
 {
+	from &= ~config->getMask(OFFSET);
+	unsigned tag = getTag(from);
 	unsigned bank = getBank(from);
 
-	cacheLine *line = new cacheLine(config, (from & config->stripOffsetMask()));
-	line->get(cacheMemory[bank]);
-	// not finshed, need to clear cache cell
+	cacheLine *line = new cacheLine(config, from);
+	line->get(cacheMemory[bank], true);
+	tagArray[bank][tag].dirty = false;
+	makeYoungest(tag, bank);
 	return line;
+}
+
+cacheLine * cache::flush(address from)
+{
+	from &= ~config->getMask(OFFSET);
+	unsigned tag = getTag(from);
+	unsigned bank = findOldest(from);
+	address flushAddress = tagArray[bank][tag].memoryAddress;
+
+	cacheLine *line = pull(flushAddress);
+
+	return line;
+}
+
+void cache::put32Value(address to, unsigned value)
+{
+	byte byteString[4];
+
+	byteString[0] = ((value & 0xFF000000) >> 24);
+	byteString[1] = ((value & 0xFF0000) >> 16);
+	byteString[2] = ((value & 0xFF00) >> 8);
+	byteString[3] = (value & 0xFF);
+
+	unsigned tag = getTag(to);
+	unsigned bank = getBank(to);
+
+	for (unsigned i = 0; i < 4; ++i)
+		cacheMemory[bank][(to & ~config->getMask(MEMORY)) + i] = byteString[i];
+
+	makeYoungest(tag, bank);
+}
+
+unsigned cache::get32Value(address from)
+{
+	byte byteString[4];
+	unsigned value;
+
+	unsigned tag = getTag(from);
+	unsigned bank = getBank(from);
+
+	for (unsigned i = 0; i < 4; ++i)
+		byteString[i] = cacheMemory[bank][(from & ~config->getMask(MEMORY)) + i];
+
+
+	value = byteString[0] * 0xFF000000;
+	value += byteString[1] * 0xFF0000;
+	value += byteString[2] * 0xFF00;
+	value += byteString[3] * 0xFF;
+
+	return value;
 }
 
 unsigned cache::getTag(address from)
 {
-	return ((from & config->tagMask()) >> config->getOffsetBits());
+	return ((from & config->getMask(TAG)) >> config->getBits(OFFSET));
 }
 
 unsigned cache::findFree(address from)
@@ -119,10 +175,23 @@ void cache::makeYoungest(unsigned tag, unsigned bank)
 	}
 }
 
+unsigned cache::findOldest(address from)
+{
+	unsigned tag = getTag(from);
+	unsigned age = 0;
+	unsigned bank = 0;
+
+	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
+		if (tagArray[i][tag].age >= age && tagArray[i][tag].dirty == true)
+			bank = i;
+
+	return bank;
+}
+
 unsigned cache::getBank(address from)
 {
 	unsigned tag = getTag(from);
-	address memoryAddress = from & config->memoryMask();
+	address memoryAddress = from & config->getMask(MEMORY);
 	unsigned bank;
 
 	for (unsigned i = 0; i < config->getCacheAssociativity(); ++i)
