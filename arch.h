@@ -7,12 +7,19 @@ class arch
 {
 public:
 	arch(unsigned cacheLineSize, address cacheSize, unsigned cacheAssociativity, address totalMemory);
+	arch(arch *config);
 	~arch();
 	unsigned getCacheLineSize();
 	address getCacheSize();
 	unsigned getCacheAssociativity();
 	address getTotalMemory();
-	unsigned getGacheLineMask();
+	unsigned getBits(unsigned value);
+	unsigned getOffsetBits();
+	unsigned getTagBits();
+	address stripOffsetMask();
+	address tagMask();
+	address memoryMask();
+
 
 private:
 
@@ -20,7 +27,6 @@ private:
 	address cacheSize;
 	unsigned cacheAssociativity;
 	address totalMemory;
-	unsigned cacheLineMask;
 };
 
 #endif

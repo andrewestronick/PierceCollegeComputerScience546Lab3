@@ -1,47 +1,43 @@
 #include "cacheLine.h"
 
 
-cacheLine::cacheLine(address baseAddress, unsigned cacheLineSize)
+cacheLine::cacheLine(arch *config, address baseAddress)
 {
-	this->baseAddress = baseAddress;
-	this->cacheLineSize = cacheLineSize;
-	data = new byte[this->cacheLineSize];
+	this->config = new arch(config);
+	this->start = baseAddress;
+	data = new byte[this->config->getCacheLineSize()];
 }
 
 cacheLine::~cacheLine()
 {
 	delete data;
+	delete config;
 }
 
-void cacheLine::get(byte * from)
+void cacheLine::get(byte *from)
 {
-	for (unsigned i = 0; i < cacheLineSize; ++i)
-		data[i] = from[i];
+	for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
+		data[i] = from[start + i];
 }
 
-void cacheLine::put(byte * to)
+void cacheLine::put(byte *to, bool relative)
 {
-	for (unsigned i = 0; i < cacheLineSize; ++i)
-		to[i] = data[i];
+	address rstart = start & config->tagMask();
+
+	if (relative)
+		for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
+			to[rstart + i] = data[i];
+	else
+		for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
+			to[start + i] = data[i];
 }
 
-byte cacheLine::getByte(unsigned index)
+address cacheLine::getAddress()
 {
-	if (index < cacheLineSize)
-		return data[index];
-
-	throw "index out of range";
+	return start;
 }
 
-void cacheLine::putByte(unsigned index, byte value)
+void cacheLine::setAddress(address start)
 {
-	if (index < cacheLineSize)
-		data[index] = value;
-
-	throw "index out of range";
-}
-
-address cacheLine::getBaseAddress()
-{
-	return baseAddress;
+	this->start = start;
 }

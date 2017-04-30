@@ -7,18 +7,17 @@
 class cacheLine
 {
 public:
-	cacheLine(address baseAddress, unsigned cacheLineSize);
+	cacheLine(arch *config, address baseAddress);
 	~cacheLine();
 	void get(byte *from);
-	void put(byte *to);
-	byte getByte(unsigned index);
-	void putByte(unsigned index, byte value);
-	address getBaseAddress();
+	void put(byte *to, bool relative);
+	address getAddress();
+	void setAddress(address start);
 
 private:
-	address baseAddress;
+	address start;
 	byte *data;
-	unsigned cacheLineSize;
+	arch *config;
 };
 
 #endif

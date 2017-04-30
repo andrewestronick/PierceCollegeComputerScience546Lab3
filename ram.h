@@ -11,13 +11,11 @@ public:
 	ram(arch *config);
 	~ram();
 	cacheLine* get(address from);
-	void put(address to, cacheLine *line);
+	void put(cacheLine *line);
 
 private:
-	address totalMemory;
-	unsigned cacheLineSize;
+	arch *config;
 	byte *data;
-	unsigned cacheLineMask;
 };
 
 #endif

@@ -3,19 +3,25 @@
 
 ram::ram(arch *config)
 {
-	this->totalMemory = config->getTotalMemory();
-	this->cacheLineSize = config->getCacheSize();
-	data = new byte[this->totalMemory];
+	this->config = new arch(config);
+	data = new byte[this->config->getTotalMemory()];
 }
 
 ram::~ram()
 {
 	delete data;
+	delete config;
 }
 
 cacheLine* ram::get(address from)
 {
-	cacheLine *line = new cacheLine(from, cacheLineSize);
+	from &= config->stripOffsetMask();
+	cacheLine *line = new cacheLine(config, from);
 	line->get(data);
 	return line;
+}
+
+void ram::put(cacheLine *line)
+{
+	line->put(data, false);
 }
