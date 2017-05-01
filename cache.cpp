@@ -13,17 +13,22 @@ cache::cache(arch *config)
 	tagArray = new tag*[this->config->getCacheAssociativity()];
 
 	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
-		tagArray[i] = new tag[this->config->getCacheSize() / this->config->getCacheAssociativity()];
+		tagArray[i] = new tag[this->config->getCacheSize() / this->config->getCacheLineSize()];
 
 	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
 		for (unsigned j = 0, size = (this->config->getCacheSize() / this->config->getCacheAssociativity()); j < size; ++j)
 		{
 			cacheMemory[i][j] = 0x0;
-			tagArray[i][j].dirty = false;
-			tagArray[i][j].age = j;
+
 		}
 
-
+	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
+		for (unsigned j = 0, size = (this->config->getCacheSize() / this->config->getCacheLineSize()); j < size; ++j)
+		{
+			tagArray[i][j].memoryAddress = 0x0;
+			tagArray[i][j].dirty = false;
+			tagArray[i][j].age = i;
+		}
 
 }
 
@@ -45,12 +50,13 @@ cache::~cache()
 bool cache::checkFree(address from)
 {
 	unsigned tag = getTag(from);
+	bool free = false;
 	
 	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
-		if (tagArray[i][tag].dirty = false)
-			return true;
+		if (tagArray[i][tag].dirty == false)
+			free = true;
 
-	return false;
+	return free;
 }
 
 void cache::push(cacheLine *line)
@@ -69,10 +75,10 @@ void cache::push(cacheLine *line)
 bool cache::checkCache(address from)
 {
 	unsigned tag = getTag(from);
-	address memoryAddress = from & config->getMask(MEMORY);
+	address memoryAddress = from & ~config->getMask(OFFSET);
 	
-	for (unsigned i = 0; i < config->getCacheAssociativity(); ++i)
-		if (tagArray[i][tag].memoryAddress == memoryAddress)
+	for (unsigned i = 0, size = config->getCacheAssociativity(); i < size; ++i)
+		if (tagArray[i][tag].memoryAddress == memoryAddress && tagArray[i][tag].dirty == true)
 			return true;
 
 	return false;
@@ -91,7 +97,7 @@ cacheLine *cache::pull(address from)
 	return line;
 }
 
-cacheLine * cache::flush(address from)
+cacheLine* cache::flush(address from)
 {
 	from &= ~config->getMask(OFFSET);
 	unsigned tag = getTag(from);
@@ -113,10 +119,14 @@ void cache::put32Value(address to, unsigned value)
 	byteString[3] = (value & 0xFF);
 
 	unsigned tag = getTag(to);
+	std::cout << "calling getBank(" << to << ")\n";
 	unsigned bank = getBank(to);
+	std::cout << "bank=" << bank << std::endl;
+
+	address start = (to & ~config->getMask(MEMORY));
 
 	for (unsigned i = 0; i < 4; ++i)
-		cacheMemory[bank][(to & ~config->getMask(MEMORY)) + i] = byteString[i];
+		cacheMemory[bank][start + i] = byteString[i];
 
 	makeYoungest(tag, bank);
 }
@@ -141,6 +151,19 @@ unsigned cache::get32Value(address from)
 	return value;
 }
 
+void cache::status()
+{
+	for (unsigned i = 0; i < 4; ++i)
+	{
+		for (unsigned j = 0; j < config->getCacheAssociativity(); ++j)
+		{
+			std::cout << "(tag: " << j << "," << i << " address: " << tagArray[j][i].memoryAddress << "  dirty: " << tagArray[j][i].dirty << "  age: " << tagArray[j][i].age << ")\t";
+		}
+		std::cout << std::endl;
+	}
+
+}
+
 unsigned cache::getTag(address from)
 {
 	return ((from & config->getMask(TAG)) >> config->getBits(OFFSET));
@@ -149,14 +172,11 @@ unsigned cache::getTag(address from)
 unsigned cache::findFree(address from)
 {
 	unsigned bank;
-	unsigned age = 0;
+	unsigned tag = getTag(from);
 
 	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
-		if (false == tagArray[i][getTag(from)].dirty && tagArray[i][getTag(from)].age <= age)
-		{
+		if (false == tagArray[i][tag].dirty)
 			bank = i;
-			age = tagArray[i][getTag(from)].age;
-		}
 
 	return bank;
 }
@@ -191,13 +211,14 @@ unsigned cache::findOldest(address from)
 unsigned cache::getBank(address from)
 {
 	unsigned tag = getTag(from);
-	address memoryAddress = from & config->getMask(MEMORY);
-	unsigned bank;
+	address memoryAddress = (from & ~config->getMask(MEMORY));
 
-	for (unsigned i = 0; i < config->getCacheAssociativity(); ++i)
+	for (unsigned i = 0, size = config->getCacheAssociativity(); i < size; ++i)
 		if (tagArray[i][tag].memoryAddress == memoryAddress && tagArray[i][tag].dirty == true)
-			bank = i;
-
-	return bank;
+		{
+			std::cout << "i = " << i << std::endl;
+			return i;
+		}
+			
 }
 

@@ -12,6 +12,7 @@ public:
 	~ram();
 	cacheLine* get(address from);
 	void put(cacheLine *line);
+	unsigned get32Value(address from);
 
 private:
 	arch *config;

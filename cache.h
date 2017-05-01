@@ -1,6 +1,7 @@
 #ifndef cache_h
 #define cache_h
 
+#include<iostream>
 #include "arch.h"
 #include "cacheLine.h"
 
@@ -16,6 +17,7 @@ public:
 	cacheLine* flush(address from);
 	void put32Value(address to, unsigned value);
 	unsigned get32Value(address from);
+	void status();
 
 private:
 	arch *config;
@@ -24,7 +26,7 @@ private:
 	{
 		address memoryAddress;
 		bool dirty;
-		byte age;
+		unsigned age;
 	};
 	tag **tagArray;
 

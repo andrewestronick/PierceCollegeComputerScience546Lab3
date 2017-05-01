@@ -33,6 +33,9 @@
     <ClCompile Include="cache.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fileProcessor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacheLine.h">
@@ -48,6 +51,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fileProcessor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
