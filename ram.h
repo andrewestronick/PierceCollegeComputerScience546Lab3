@@ -1,6 +1,6 @@
 #ifndef ram_h
 #define ram_h
-#include "global.h"
+
 #include "arch.h"
 #include "cacheLine.h"
 

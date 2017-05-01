@@ -143,20 +143,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AJELab3.cpp" />
-    <ClCompile Include="arch.cpp" />
-    <ClCompile Include="cache.cpp" />
-    <ClCompile Include="cacheLine.cpp" />
-    <ClCompile Include="fileProcessor.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="ram.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="arch.h" />
-    <ClInclude Include="cache.h" />
-    <ClInclude Include="cacheLine.h" />
-    <ClInclude Include="fileProcessor.h" />
-    <ClInclude Include="global.h" />
-    <ClInclude Include="ram.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

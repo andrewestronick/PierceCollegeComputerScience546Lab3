@@ -1,8 +1,6 @@
 #ifndef arch_h
 #define arch_h
 
-#include "global.h"
-
 // Types of masks
 #define OFFSET 1
 #define TAG 2

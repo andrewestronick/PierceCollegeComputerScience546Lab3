@@ -1,7 +1,6 @@
 #ifndef fileprocessor_h
 #define fileprocessor_h
 
-#include "global.h"
 #include "arch.h"
 #include<string>
 #include<vector>

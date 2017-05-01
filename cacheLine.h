@@ -1,7 +1,6 @@
 #ifndef cacheline_h
 #define cacheline_h
 
-#include"global.h"
 #include "arch.h"
 
 class cacheLine
