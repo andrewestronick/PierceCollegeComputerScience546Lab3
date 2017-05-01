@@ -36,15 +36,14 @@ int main(int argc, char *argv[])
 		address addr = instructions->at(k).addr;
 		address value = instructions->at(k).value;
 
-		std::cout << "k=" << k << "\trw=" << rw << "\taddr=" << addr << "\tvalue=" << value << std::endl;
-		systemCache->status();
+		// std::cout << "k=" << k << "\trw=" << rw << "\taddr=" << addr << "\tvalue=" << value << std::endl;
 
 		if (rw == 'R')
 			if (!systemCache->checkCache(addr))
 				printf("Address: %i\tmemory: %i\tcache: -1\n", addr, memory->get32Value(addr));
 			else
 			{
-				unsigned cacheValue = systemCache->get32Value(addr); // update age?
+				unsigned cacheValue = systemCache->get32Value(addr);
 				printf("Address: %i\tmemory: %i\tcache: %i\n", addr, memory->get32Value(addr), cacheValue);
 			}
 		else
@@ -54,15 +53,12 @@ int main(int argc, char *argv[])
 				if (!systemCache->checkFree(addr))
 				{
 					line = systemCache->flush(addr);
-					std::cout << "flush\n";
-					systemCache->status();
 					memory->put(line);
 				}
 
 				line = memory->get(addr);
 				systemCache->push(line);
-				std::cout << "push\n";
-				systemCache->status();
+
 			}
 
 			systemCache->put32Value(addr, value);

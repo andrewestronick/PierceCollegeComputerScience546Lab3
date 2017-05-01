@@ -4,7 +4,12 @@
 ram::ram(arch *config)
 {
 	this->config = new arch(config);
-	data = new byte[this->config->getTotalMemory()];
+	address totalMemory = this->config->getTotalMemory();
+
+	data = new byte[totalMemory];
+
+	for (unsigned i = 0; i < totalMemory; ++i)
+		data[i] = 0x0;
 }
 
 ram::~ram()
@@ -25,16 +30,13 @@ void ram::put(cacheLine *line) { line->put(data, false); }
 
 unsigned ram::get32Value(address from)
 {
-	byte byteString[4];
-	unsigned value;
+	unsigned value = 0x00;
 
 	for (unsigned i = 0; i < 4; ++i)
-		byteString[i] = data[from + i];
-
-	value = byteString[0] * 0xFF000000;
-	value += byteString[1] * 0xFF0000;
-	value += byteString[2] * 0xFF00;
-	value += byteString[3] * 0xFF;
+	{
+		value <<= 8;
+		value |= data[from + i];
+	}
 
 	return value;
 }

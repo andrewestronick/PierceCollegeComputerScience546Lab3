@@ -13,23 +13,20 @@ cache::cache(arch *config)
 	tagArray = new tag*[this->config->getCacheAssociativity()];
 
 	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
-		tagArray[i] = new tag[this->config->getCacheSize() / this->config->getCacheLineSize()];
+		tagArray[i] = new tag[this->config->getCacheSize() / this->config->getCacheAssociativity() / this->config->getCacheLineSize()];
 
 	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
 		for (unsigned j = 0, size = (this->config->getCacheSize() / this->config->getCacheAssociativity()); j < size; ++j)
-		{
-			cacheMemory[i][j] = 0x0;
+			cacheMemory[i][j] = 0x00;
 
-		}
 
 	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
-		for (unsigned j = 0, size = (this->config->getCacheSize() / this->config->getCacheLineSize()); j < size; ++j)
+		for (unsigned j = 0, size = this->config->getCacheSize() / this->config->getCacheAssociativity() / this->config->getCacheLineSize(); j < size; ++j)
 		{
 			tagArray[i][j].memoryAddress = 0x0;
 			tagArray[i][j].dirty = false;
 			tagArray[i][j].age = i;
 		}
-
 }
 
 cache::~cache()
@@ -52,7 +49,7 @@ bool cache::checkFree(address from)
 	unsigned tag = getTag(from);
 	bool free = false;
 	
-	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
+	for (unsigned i = 0, size = config->getCacheAssociativity(); i < size; ++i)
 		if (tagArray[i][tag].dirty == false)
 			free = true;
 
@@ -119,9 +116,7 @@ void cache::put32Value(address to, unsigned value)
 	byteString[3] = (value & 0xFF);
 
 	unsigned tag = getTag(to);
-	std::cout << "calling getBank(" << to << ")\n";
 	unsigned bank = getBank(to);
-	std::cout << "bank=" << bank << std::endl;
 
 	address start = (to & ~config->getMask(MEMORY));
 
@@ -133,35 +128,37 @@ void cache::put32Value(address to, unsigned value)
 
 unsigned cache::get32Value(address from)
 {
-	byte byteString[4];
-	unsigned value;
-
+	unsigned value = 0x00;
 	unsigned tag = getTag(from);
 	unsigned bank = getBank(from);
 
 	for (unsigned i = 0; i < 4; ++i)
-		byteString[i] = cacheMemory[bank][(from & ~config->getMask(MEMORY)) + i];
-
-
-	value = byteString[0] * 0xFF000000;
-	value += byteString[1] * 0xFF0000;
-	value += byteString[2] * 0xFF00;
-	value += byteString[3] * 0xFF;
+	{
+		value <<= 8;
+		value |= cacheMemory[bank][(from & ~config->getMask(MEMORY)) + i];
+	}
 
 	return value;
 }
 
 void cache::status()
 {
-	for (unsigned i = 0; i < 4; ++i)
+	for (unsigned i = 0; i < 2; ++i)
 	{
 		for (unsigned j = 0; j < config->getCacheAssociativity(); ++j)
 		{
-			std::cout << "(tag: " << j << "," << i << " address: " << tagArray[j][i].memoryAddress << "  dirty: " << tagArray[j][i].dirty << "  age: " << tagArray[j][i].age << ")\t";
+			std::cout << "(tag: " << j << "," << i << " address: " << tagArray[j][i].memoryAddress << "  D: " << tagArray[j][i].dirty << "  A: " << tagArray[j][i].age << ")   ";
 		}
 		std::cout << std::endl;
 	}
 
+	std::cout << "cacheBank 1,0--";
+	for (unsigned i = 0, size = config->getCacheLineSize(); i < size; ++i)
+	{
+		unsigned value = cacheMemory[1][(0) + i];
+		std::cout << value;
+		std::cout << ((i < (size - 2)) ? ',' : '\n');
+	}
 }
 
 unsigned cache::getTag(address from)
@@ -201,7 +198,7 @@ unsigned cache::findOldest(address from)
 	unsigned age = 0;
 	unsigned bank = 0;
 
-	for (unsigned i = 0; i < this->config->getCacheAssociativity(); ++i)
+	for (unsigned i = 0, size = this->config->getCacheAssociativity(); i < size; ++i)
 		if (tagArray[i][tag].age >= age && tagArray[i][tag].dirty == true)
 			bank = i;
 
@@ -211,14 +208,10 @@ unsigned cache::findOldest(address from)
 unsigned cache::getBank(address from)
 {
 	unsigned tag = getTag(from);
-	address memoryAddress = (from & ~config->getMask(MEMORY));
+	address memoryAddress = (from & ~config->getMask(OFFSET));
 
 	for (unsigned i = 0, size = config->getCacheAssociativity(); i < size; ++i)
 		if (tagArray[i][tag].memoryAddress == memoryAddress && tagArray[i][tag].dirty == true)
-		{
-			std::cout << "i = " << i << std::endl;
 			return i;
-		}
-			
 }
 
