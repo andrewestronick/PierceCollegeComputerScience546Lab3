@@ -127,6 +127,12 @@ private:
 
 int main(int argc, char *argv[])
 {
+	if (argc != 2)
+	{
+		std::cout << "Usage: " << argv[0] << " {input file}\n";
+		exit(-1);
+	}
+
 	fileProcessor *file;
 
 	try
